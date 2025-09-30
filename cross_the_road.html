@@ -192,6 +192,16 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        .heart-collect {
+            animation: heartCollect 0.5s ease-out;
+        }
+
+        @keyframes heartCollect {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(0); opacity: 0; }
+        }
     </style>
 </head>
 <body>
@@ -220,6 +230,7 @@
             <div class="control-info">
                 <h3>How to Play</h3>
                 <p>Use arrow keys to move the pedestrian across the busy road!</p>
+                <p>Collect hearts ❤️ on the road to gain extra lives! (Limited per level)</p>
                 <div class="keys">
                     <div class="key">↑</div>
                     <div class="key">↓</div>
@@ -265,17 +276,21 @@
                 score: 0,
                 level: 1,
                 lives: 3,
-                animationId: null,
-                invulnerable: false,
-                invulnerableTime: 0
+                animationId: null
             };
 
-            // Player object - smaller hitbox for more precise collision
+            // Define road boundaries
+            var roadBounds = {
+                top: 80,
+                bottom: canvas.height - 80
+            };
+
+            // Player object
             var player = {
                 x: canvas.width / 2 - 15,
                 y: canvas.height - 60,
-                width: 30,  // Reduced from 40
-                height: 30, // Reduced from 40
+                width: 30,
+                height: 30,
                 speed: 40,
                 emoji: '🚶',
                 isJumping: false,
@@ -286,18 +301,21 @@
             var cars = [];
             var carEmojis = ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐'];
             
+            // Hearts array
+            var hearts = [];
+            
             // Road lanes
             var lanes = [
-                { y: 100, speed: 2, direction: 1 },
-                { y: 150, speed: 2.5, direction: -1 },
-                { y: 200, speed: 3, direction: 1 },
-                { y: 250, speed: 2, direction: -1 },
-                { y: 300, speed: 3.5, direction: 1 },
-                { y: 350, speed: 2.5, direction: -1 },
-                { y: 400, speed: 3, direction: 1 }
+                { y: 110, speed: 2, direction: 1 },
+                { y: 160, speed: 2.5, direction: -1 },
+                { y: 210, speed: 3, direction: 1 },
+                { y: 260, speed: 2, direction: -1 },
+                { y: 310, speed: 3.5, direction: 1 },
+                { y: 360, speed: 2.5, direction: -1 },
+                { y: 395, speed: 3, direction: 1 }
             ];
 
-            // Initialize cars with smaller hitboxes
+            // Initialize cars
             function initCars() {
                 cars = [];
                 lanes.forEach(function(lane) {
@@ -306,8 +324,8 @@
                         cars.push({
                             x: Math.random() * canvas.width,
                             y: lane.y,
-                            width: 35,  // Reduced from 50
-                            height: 25, // Reduced from 35
+                            width: 35,
+                            height: 25,
                             speed: lane.speed * (1 + gameState.level * 0.1),
                             direction: lane.direction,
                             emoji: carEmojis[Math.floor(Math.random() * carEmojis.length)]
@@ -316,20 +334,47 @@
                 });
             }
 
-            // Draw road
+            // Initialize hearts - limited per level, no respawning
+            function initHearts() {
+                hearts = [];
+                var numHearts = 1 + Math.floor(gameState.level / 4); // 1-2 hearts per level
+                
+                for (var i = 0; i < numHearts; i++) {
+                    // Generate random position on the road
+                    var laneIndex = Math.floor(Math.random() * lanes.length);
+                    var lane = lanes[laneIndex];
+                    
+                    hearts.push({
+                        x: Math.random() * (canvas.width - 30),
+                        y: lane.y,
+                        width: 30,
+                        height: 30,
+                        emoji: '❤️',
+                        collected: false,
+                        animationTime: 0
+                    });
+                }
+            }
+
+            // Draw road with clear boundaries
             function drawRoad() {
                 // Background
                 ctx.fillStyle = '#2c3e50';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Safe zones
+                // Safe zones (grass)
                 ctx.fillStyle = '#27ae60';
-                ctx.fillRect(0, 0, canvas.width, 80);
-                ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+                ctx.fillRect(0, 0, canvas.width, roadBounds.top);
+                ctx.fillRect(0, roadBounds.bottom, canvas.width, canvas.height - roadBounds.bottom);
 
                 // Road
                 ctx.fillStyle = '#34495e';
-                ctx.fillRect(0, 80, canvas.width, canvas.height - 160);
+                ctx.fillRect(0, roadBounds.top, canvas.width, roadBounds.bottom - roadBounds.top);
+
+                // Road edges (curbs)
+                ctx.fillStyle = '#95a5a6';
+                ctx.fillRect(0, roadBounds.top - 5, canvas.width, 5);
+                ctx.fillRect(0, roadBounds.bottom, canvas.width, 5);
 
                 // Lane lines
                 ctx.strokeStyle = '#f39c12';
@@ -347,28 +392,24 @@
 
                 // Finish line
                 ctx.fillStyle = '#e74c3c';
-                ctx.fillRect(0, 70, canvas.width, 10);
+                ctx.fillRect(0, roadBounds.top - 10, canvas.width, 10);
                 ctx.fillStyle = 'white';
                 ctx.font = 'bold 20px Arial';
                 ctx.fillText('🏁 FINISH 🏁', canvas.width / 2 - 60, 40);
+
+                // Start line
+                ctx.fillStyle = '#3498db';
+                ctx.fillRect(0, roadBounds.bottom, canvas.width, 10);
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 16px Arial';
+                ctx.fillText('START', canvas.width / 2 - 25, roadBounds.bottom + 25);
             }
 
-            // Draw player with invulnerability effect
+            // Draw player
             function drawPlayer() {
                 ctx.save();
-                
-                // Flash effect when invulnerable
-                if (gameState.invulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
-                    ctx.globalAlpha = 0.5;
-                }
-                
-                ctx.font = '30px Arial'; // Slightly smaller font
+                ctx.font = '30px Arial';
                 ctx.fillText(player.emoji, player.x, player.y + player.jumpHeight + 30);
-                
-                // Draw hitbox for debugging (remove in production)
-                // ctx.strokeStyle = 'red';
-                // ctx.strokeRect(player.x, player.y + player.jumpHeight, player.width, player.height);
-                
                 ctx.restore();
             }
 
@@ -376,17 +417,31 @@
             function drawCars() {
                 cars.forEach(function(car) {
                     ctx.save();
-                    ctx.font = '30px Arial'; // Slightly smaller font
+                    ctx.font = '30px Arial';
                     if (car.direction === -1) {
                         ctx.scale(-1, 1);
                         ctx.fillText(car.emoji, -car.x - car.width, car.y + 30);
                     } else {
                         ctx.fillText(car.emoji, car.x, car.y + 30);
                     }
+                    ctx.restore();
+                });
+            }
+
+            // Draw hearts
+            function drawHearts() {
+                hearts.forEach(function(heart) {
+                    if (heart.collected) return;
                     
-                    // Draw hitbox for debugging (remove in production)
-                    // ctx.strokeStyle = 'yellow';
-                    // ctx.strokeRect(car.x, car.y, car.width, car.height);
+                    ctx.save();
+                    
+                    // Pulsing animation
+                    var scale = 1 + Math.sin(Date.now() / 200) * 0.1;
+                    ctx.translate(heart.x + heart.width/2, heart.y + heart.height/2);
+                    ctx.scale(scale, scale);
+                    
+                    ctx.font = '25px Arial';
+                    ctx.fillText(heart.emoji, -heart.width/2, heart.height/2);
                     
                     ctx.restore();
                 });
@@ -406,16 +461,13 @@
                 });
             }
 
-            // More precise collision detection with padding
+            // Check collision with cars
             function checkCollision() {
-                if (gameState.invulnerable) return false;
-                
-                var padding = 5; // Small padding to make it slightly more forgiving
+                var padding = 5;
                 
                 for (var i = 0; i < cars.length; i++) {
                     var car = cars[i];
                     
-                    // Precise collision detection
                     if (player.x + padding < car.x + car.width - padding &&
                         player.x + player.width - padding > car.x + padding &&
                         player.y + player.jumpHeight + padding < car.y + car.height - padding &&
@@ -426,9 +478,77 @@
                 return false;
             }
 
+            // Check collision with hearts
+            function checkHeartCollection() {
+                for (var i = 0; i < hearts.length; i++) {
+                    var heart = hearts[i];
+                    if (heart.collected) continue;
+                    
+                    if (player.x < heart.x + heart.width &&
+                        player.x + player.width > heart.x &&
+                        player.y + player.jumpHeight < heart.y + heart.height &&
+                        player.y + player.jumpHeight + player.height > heart.y) {
+                        
+                        // Collect the heart
+                        heart.collected = true;
+                        
+                        // Increase lives (max 5)
+                        if (gameState.lives < 5) {
+                            gameState.lives++;
+                            updateLivesDisplay();
+                        } else {
+                            // If already at max lives, add bonus points
+                            gameState.score += 50;
+                            document.getElementById('score').textContent = gameState.score;
+                        }
+                        
+                        // Play collection effect
+                        playHeartCollectEffect(heart);
+                        
+                        // NO RESPAWNING - Hearts are limited per level
+                        
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // Play heart collection effect
+            function playHeartCollectEffect(heart) {
+                // Create a temporary animation
+                var animHeart = {
+                    x: heart.x,
+                    y: heart.y,
+                    size: 30,
+                    opacity: 1,
+                    growing: true
+                };
+                
+                var animate = function() {
+                    if (animHeart.growing) {
+                        animHeart.size += 2;
+                        animHeart.opacity -= 0.05;
+                        
+                        if (animHeart.opacity <= 0) {
+                            return;
+                        }
+                        
+                        ctx.save();
+                        ctx.globalAlpha = animHeart.opacity;
+                        ctx.font = animHeart.size + 'px Arial';
+                        ctx.fillText('❤️', animHeart.x, animHeart.y + animHeart.size);
+                        ctx.restore();
+                        
+                        requestAnimationFrame(animate);
+                    }
+                };
+                
+                animate();
+            }
+
             // Check win condition
             function checkWin() {
-                return player.y <= 80;
+                return player.y <= roadBounds.top;
             }
 
             // Update game state
@@ -437,21 +557,12 @@
 
                 updateCars();
 
-                // Update invulnerability
-                if (gameState.invulnerable) {
-                    gameState.invulnerableTime--;
-                    if (gameState.invulnerableTime <= 0) {
-                        gameState.invulnerable = false;
-                    }
-                }
+                // Check heart collection
+                checkHeartCollection();
 
                 if (checkCollision()) {
                     gameState.lives--;
                     updateLivesDisplay();
-                    
-                    // Add invulnerability period after hit
-                    gameState.invulnerable = true;
-                    gameState.invulnerableTime = 120; // 2 seconds at 60fps
                     
                     // Flash effect
                     canvas.classList.add('collision-flash');
@@ -476,6 +587,7 @@
             // Draw everything
             function draw() {
                 drawRoad();
+                drawHearts();
                 drawCars();
                 drawPlayer();
             }
@@ -518,7 +630,7 @@
                 switch(e.key) {
                     case 'ArrowUp':
                         e.preventDefault();
-                        if (player.y > 40) {
+                        if (player.y > roadBounds.top) {
                             player.y -= player.speed;
                             player.isJumping = true;
                             setTimeout(function() {
@@ -528,7 +640,7 @@
                         break;
                     case 'ArrowDown':
                         e.preventDefault();
-                        if (player.y < canvas.height - 80) {
+                        if (player.y < roadBounds.bottom - player.height) {
                             player.y += player.speed;
                         }
                         break;
@@ -554,8 +666,8 @@
                     
                     gameState.isRunning = true;
                     gameState.isPaused = false;
-                    gameState.invulnerable = false;
                     initCars();
+                    initHearts();
                     resetPlayerPosition();
                     this.gameLoop();
                 },
@@ -570,7 +682,6 @@
                     gameState.score = 0;
                     gameState.level = 1;
                     gameState.lives = 3;
-                    gameState.invulnerable = false;
                     cancelAnimationFrame(gameState.animationId);
                     
                     document.getElementById('score').textContent = '0';
@@ -579,6 +690,7 @@
                     
                     resetPlayerPosition();
                     cars = [];
+                    hearts = [];
                     draw();
                 },
 
@@ -595,6 +707,7 @@
                     document.getElementById('score').textContent = gameState.score;
                     resetPlayerPosition();
                     initCars();
+                    initHearts();
                     gameState.isRunning = true;
                     this.gameLoop();
                 },
