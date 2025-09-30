@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cross The Road - Emoji Adventure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            color: white;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .info-item span {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        #gameCanvas {
+            border: 3px solid #333;
+            border-radius: 10px;
+            display: block;
+            margin: 0 auto;
+            background: #2c3e50;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .control-info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .control-info h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .keys {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .key {
+            background: white;
+            border: 2px solid #333;
+            border-radius: 5px;
+            padding: 10px 15px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .game-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1em;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .game-over-modal, .win-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-content h2 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+        }
+
+        .modal-content p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            color: #666;
+        }
+
+        .hearts {
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <header>
+            <h1>🚶 Cross The Road 🚗</h1>
+        </header>
+
+        <section class="game-info">
+            <div class="info-item">
+                <span>Score: <span id="score">0</span></span>
+            </div>
+            <div class="info-item">
+                <span>Level: <span id="level">1</span></span>
+            </div>
+            <div class="info-item hearts">
+                Lives: <span id="lives">❤️❤️❤️</span>
+            </div>
+        </section>
+
+        <main>
+            <canvas id="gameCanvas" width="600" height="500"></canvas>
+        </main>
+
+        <section class="controls">
+            <div class="control-info">
+                <h3>How to Play</h3>
+                <p>Use arrow keys to move the pedestrian across the busy road!</p>
+                <div class="keys">
+                    <div class="key">↑</div>
+                    <div class="key">↓</div>
+                    <div class="key">←</div>
+                    <div class="key">→</div>
+                </div>
+            </div>
+            <div class="game-buttons">
+                <button onclick="game.start()">Start Game</button>
+                <button onclick="game.pause()">Pause</button>
+                <button onclick="game.reset()">Reset</button>
+            </div>
+        </section>
+    </div>
+
+    <div class="game-over-modal" id="gameOverModal">
+        <div class="modal-content">
+            <h2>💥 Game Over!</h2>
+            <p>You got hit by a car!</p>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button onclick="game.restart()">Try Again</button>
+        </div>
+    </div>
+
+    <div class="win-modal" id="winModal">
+        <div class="modal-content">
+            <h2>🎉 Level Complete!</h2>
+            <p>You successfully crossed the road!</p>
+            <p>Score: <span id="levelScore">0</span></p>
+            <button onclick="game.nextLevel()">Next Level</button>
+        </div>
+    </div>
+
+    <script>
+        var game = (function() {
+            var canvas = document.getElementById('gameCanvas');
+            var ctx = canvas.getContext('2d');
+            
+            // Game state
+            var gameState = {
+                isRunning: false,
+                isPaused: false,
+                score: 0,
+                level: 1,
+                lives: 3,
+                animationId: null
+            };
+
+            // Player object
+            var player = {
+                x: canvas.width / 2 - 20,
+                y: canvas.height - 60,
+                width: 40,
+                height: 40,
+                speed: 40,
+                emoji: '🚶',
+                isJumping: false,
+                jumpHeight: 0
+            };
+
+            // Cars array
+            var cars = [];
+            var carEmojis = ['🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐'];
+            
+            // Road lanes
+            var lanes = [
+                { y: 100, speed: 2, direction: 1 },
+                { y: 150, speed: 2.5, direction: -1 },
+                { y: 200, speed: 3, direction: 1 },
+                { y: 250, speed: 2, direction: -1 },
+                { y: 300, speed: 3.5, direction: 1 },
+                { y: 350, speed: 2.5, direction: -1 },
+                { y: 400, speed: 3, direction: 1 }
+            ];
+
+            // Initialize cars
+            function initCars() {
+                cars = [];
+                lanes.forEach(function(lane) {
+                    var numCars = 3 + Math.floor(gameState.level / 2);
+                    for (var i = 0; i < numCars; i++) {
+                        cars.push({
+                            x: Math.random() * canvas.width,
+                            y: lane.y,
+                            width: 50,
+                            height: 35,
+                            speed: lane.speed * (1 + gameState.level * 0.1),
+                            direction: lane.direction,
+                            emoji: carEmojis[Math.floor(Math.random() * carEmojis.length)]
+                        });
+                    }
+                });
+            }
+
+            // Draw road
+            function drawRoad() {
+                // Background
+                ctx.fillStyle = '#2c3e50';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Safe zones
+                ctx.fillStyle = '#27ae60';
+                ctx.fillRect(0, 0, canvas.width, 80);
+                ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+
+                // Road
+                ctx.fillStyle = '#34495e';
+                ctx.fillRect(0, 80, canvas.width, canvas.height - 160);
+
+                // Lane lines
+                ctx.strokeStyle = '#f39c12';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([20, 10]);
+                
+                lanes.forEach(function(lane) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, lane.y - 20);
+                    ctx.lineTo(canvas.width, lane.y - 20);
+                    ctx.stroke();
+                });
+                
+                ctx.setLineDash([]);
+
+                // Finish line
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillRect(0, 70, canvas.width, 10);
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText('🏁 FINISH 🏁', canvas.width / 2 - 60, 40);
+            }
+
+            // Draw player
+            function drawPlayer() {
+                ctx.save();
+                ctx.font = '35px Arial';
+                ctx.fillText(player.emoji, player.x, player.y + player.jumpHeight + 35);
+                ctx.restore();
+            }
+
+            // Draw cars
+            function drawCars() {
+                cars.forEach(function(car) {
+                    ctx.save();
+                    ctx.font = '35px Arial';
+                    if (car.direction === -1) {
+                        ctx.scale(-1, 1);
+                        ctx.fillText(car.emoji, -car.x - car.width, car.y + 35);
+                    } else {
+                        ctx.fillText(car.emoji, car.x, car.y + 35);
+                    }
+                    ctx.restore();
+                });
+            }
+
+            // Update cars position
+            function updateCars() {
+                cars.forEach(function(car) {
+                    car.x += car.speed * car.direction;
+                    
+                    // Wrap around screen
+                    if (car.direction === 1 && car.x > canvas.width) {
+                        car.x = -car.width;
+                    } else if (car.direction === -1 && car.x < -car.width) {
+                        car.x = canvas.width;
+                    }
+                });
+            }
+
+            // Check collision
+            function checkCollision() {
+                for (var i = 0; i < cars.length; i++) {
+                    var car = cars[i];
+                    if (player.x < car.x + car.width &&
+                        player.x + player.width > car.x &&
+                        player.y + player.jumpHeight < car.y + car.height &&
+                        player.y + player.jumpHeight + player.height > car.y) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // Check win condition
+            function checkWin() {
+                return player.y <= 80;
+            }
+
+            // Update game state
+            function update() {
+                if (!gameState.isRunning || gameState.isPaused) return;
+
+                updateCars();
+
+                if (checkCollision()) {
+                    gameState.lives--;
+                    updateLivesDisplay();
+                    
+                    if (gameState.lives <= 0) {
+                        gameOver();
+                    } else {
+                        resetPlayerPosition();
+                    }
+                }
+
+                if (checkWin()) {
+                    levelComplete();
+                }
+
+                draw();
+            }
+
+            // Draw everything
+            function draw() {
+                drawRoad();
+                drawCars();
+                drawPlayer();
+            }
+
+            // Reset player position
+            function resetPlayerPosition() {
+                player.x = canvas.width / 2 - 20;
+                player.y = canvas.height - 60;
+                player.jumpHeight = 0;
+            }
+
+            // Update lives display
+            function updateLivesDisplay() {
+                var hearts = '';
+                for (var i = 0; i < gameState.lives; i++) {
+                    hearts += '❤️';
+                }
+                document.getElementById('lives').textContent = hearts || '💔';
+            }
+
+            // Game over
+            function gameOver() {
+                gameState.isRunning = false;
+                document.getElementById('finalScore').textContent = gameState.score;
+                document.getElementById('gameOverModal').style.display = 'flex';
+            }
+
+            // Level complete
+            function levelComplete() {
+                gameState.isRunning = false;
+                gameState.score += 100 * gameState.level;
+                document.getElementById('levelScore').textContent = gameState.score;
+                document.getElementById('winModal').style.display = 'flex';
+            }
+
+            // Keyboard controls
+            document.addEventListener('keydown', function(e) {
+                if (!gameState.isRunning || gameState.isPaused) return;
+
+                switch(e.key) {
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        if (player.y > 40) {
+                            player.y -= player.speed;
+                            player.isJumping = true;
+                            setTimeout(function() {
+                                player.isJumping = false;
+                            }, 200);
+                        }
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        if (player.y < canvas.height - 80) {
+                            player.y += player.speed;
+                        }
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        if (player.x > 0) {
+                            player.x -= player.speed;
+                        }
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        if (player.x < canvas.width - player.width) {
+                            player.x += player.speed;
+                        }
+                        break;
+                }
+            });
+
+            // Public methods
+            return {
+                start: function() {
+                    if (gameState.isRunning) return;
+                    
+                    gameState.isRunning = true;
+                    gameState.isPaused = false;
+                    initCars();
+                    resetPlayerPosition();
+                    this.gameLoop();
+                },
+
+                pause: function() {
+                    gameState.isPaused = !gameState.isPaused;
+                },
+
+                reset: function() {
+                    gameState.isRunning = false;
+                    gameState.isPaused = false;
+                    gameState.score = 0;
+                    gameState.level = 1;
+                    gameState.lives = 3;
+                    cancelAnimationFrame(gameState.animationId);
+                    
+                    document.getElementById('score').textContent = '0';
+                    document.getElementById('level').textContent = '1';
+                    updateLivesDisplay();
+                    
+                    resetPlayerPosition();
+                    cars = [];
+                    draw();
+                },
+
+                restart: function() {
+                    document.getElementById('gameOverModal').style.display = 'none';
+                    this.reset();
+                    this.start();
+                },
+
+                nextLevel: function() {
+                    document.getElementById('winModal').style.display = 'none';
+                    gameState.level++;
+                    document.getElementById('level').textContent = gameState.level;
+                    document.getElementById('score').textContent = gameState.score;
+                    resetPlayerPosition();
+                    initCars();
+                    gameState.isRunning = true;
+                    this.gameLoop();
+                },
+
+                gameLoop: function() {
+                    update();
+                    if (gameState.isRunning) {
+                        gameState.animationId = requestAnimationFrame(this.gameLoop.bind(this));
+                    }
+                }
+            };
+        })();
+
+        // Initial draw
+        game.reset();
+    </script>
+</body>
+</html>
