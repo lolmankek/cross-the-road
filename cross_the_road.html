@@ -183,6 +183,15 @@
         .hearts {
             font-size: 1.5em;
         }
+
+        .collision-flash {
+            animation: flash 0.3s;
+        }
+
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
@@ -256,15 +265,17 @@
                 score: 0,
                 level: 1,
                 lives: 3,
-                animationId: null
+                animationId: null,
+                invulnerable: false,
+                invulnerableTime: 0
             };
 
-            // Player object
+            // Player object - smaller hitbox for more precise collision
             var player = {
-                x: canvas.width / 2 - 20,
+                x: canvas.width / 2 - 15,
                 y: canvas.height - 60,
-                width: 40,
-                height: 40,
+                width: 30,  // Reduced from 40
+                height: 30, // Reduced from 40
                 speed: 40,
                 emoji: '🚶',
                 isJumping: false,
@@ -286,7 +297,7 @@
                 { y: 400, speed: 3, direction: 1 }
             ];
 
-            // Initialize cars
+            // Initialize cars with smaller hitboxes
             function initCars() {
                 cars = [];
                 lanes.forEach(function(lane) {
@@ -295,8 +306,8 @@
                         cars.push({
                             x: Math.random() * canvas.width,
                             y: lane.y,
-                            width: 50,
-                            height: 35,
+                            width: 35,  // Reduced from 50
+                            height: 25, // Reduced from 35
                             speed: lane.speed * (1 + gameState.level * 0.1),
                             direction: lane.direction,
                             emoji: carEmojis[Math.floor(Math.random() * carEmojis.length)]
@@ -342,11 +353,22 @@
                 ctx.fillText('🏁 FINISH 🏁', canvas.width / 2 - 60, 40);
             }
 
-            // Draw player
+            // Draw player with invulnerability effect
             function drawPlayer() {
                 ctx.save();
-                ctx.font = '35px Arial';
-                ctx.fillText(player.emoji, player.x, player.y + player.jumpHeight + 35);
+                
+                // Flash effect when invulnerable
+                if (gameState.invulnerable && Math.floor(Date.now() / 100) % 2 === 0) {
+                    ctx.globalAlpha = 0.5;
+                }
+                
+                ctx.font = '30px Arial'; // Slightly smaller font
+                ctx.fillText(player.emoji, player.x, player.y + player.jumpHeight + 30);
+                
+                // Draw hitbox for debugging (remove in production)
+                // ctx.strokeStyle = 'red';
+                // ctx.strokeRect(player.x, player.y + player.jumpHeight, player.width, player.height);
+                
                 ctx.restore();
             }
 
@@ -354,13 +376,18 @@
             function drawCars() {
                 cars.forEach(function(car) {
                     ctx.save();
-                    ctx.font = '35px Arial';
+                    ctx.font = '30px Arial'; // Slightly smaller font
                     if (car.direction === -1) {
                         ctx.scale(-1, 1);
-                        ctx.fillText(car.emoji, -car.x - car.width, car.y + 35);
+                        ctx.fillText(car.emoji, -car.x - car.width, car.y + 30);
                     } else {
-                        ctx.fillText(car.emoji, car.x, car.y + 35);
+                        ctx.fillText(car.emoji, car.x, car.y + 30);
                     }
+                    
+                    // Draw hitbox for debugging (remove in production)
+                    // ctx.strokeStyle = 'yellow';
+                    // ctx.strokeRect(car.x, car.y, car.width, car.height);
+                    
                     ctx.restore();
                 });
             }
@@ -379,14 +406,20 @@
                 });
             }
 
-            // Check collision
+            // More precise collision detection with padding
             function checkCollision() {
+                if (gameState.invulnerable) return false;
+                
+                var padding = 5; // Small padding to make it slightly more forgiving
+                
                 for (var i = 0; i < cars.length; i++) {
                     var car = cars[i];
-                    if (player.x < car.x + car.width &&
-                        player.x + player.width > car.x &&
-                        player.y + player.jumpHeight < car.y + car.height &&
-                        player.y + player.jumpHeight + player.height > car.y) {
+                    
+                    // Precise collision detection
+                    if (player.x + padding < car.x + car.width - padding &&
+                        player.x + player.width - padding > car.x + padding &&
+                        player.y + player.jumpHeight + padding < car.y + car.height - padding &&
+                        player.y + player.jumpHeight + player.height - padding > car.y + padding) {
                         return true;
                     }
                 }
@@ -404,9 +437,27 @@
 
                 updateCars();
 
+                // Update invulnerability
+                if (gameState.invulnerable) {
+                    gameState.invulnerableTime--;
+                    if (gameState.invulnerableTime <= 0) {
+                        gameState.invulnerable = false;
+                    }
+                }
+
                 if (checkCollision()) {
                     gameState.lives--;
                     updateLivesDisplay();
+                    
+                    // Add invulnerability period after hit
+                    gameState.invulnerable = true;
+                    gameState.invulnerableTime = 120; // 2 seconds at 60fps
+                    
+                    // Flash effect
+                    canvas.classList.add('collision-flash');
+                    setTimeout(function() {
+                        canvas.classList.remove('collision-flash');
+                    }, 300);
                     
                     if (gameState.lives <= 0) {
                         gameOver();
@@ -431,7 +482,7 @@
 
             // Reset player position
             function resetPlayerPosition() {
-                player.x = canvas.width / 2 - 20;
+                player.x = canvas.width / 2 - 15;
                 player.y = canvas.height - 60;
                 player.jumpHeight = 0;
             }
@@ -503,6 +554,7 @@
                     
                     gameState.isRunning = true;
                     gameState.isPaused = false;
+                    gameState.invulnerable = false;
                     initCars();
                     resetPlayerPosition();
                     this.gameLoop();
@@ -518,6 +570,7 @@
                     gameState.score = 0;
                     gameState.level = 1;
                     gameState.lives = 3;
+                    gameState.invulnerable = false;
                     cancelAnimationFrame(gameState.animationId);
                     
                     document.getElementById('score').textContent = '0';
